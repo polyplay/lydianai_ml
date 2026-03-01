@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-import math
 from typing import Optional, Dict, Any
 
 import httpx
@@ -80,7 +79,7 @@ class ServerClient:
         async with httpx.AsyncClient(timeout=None) as client:
             r = await client.post(
                 f"{self.server_url}/api/v1/training/submit-update",
-                data=meta.model_dump(),
+                data={"metadata_json": meta.model_dump_json()},
                 files=files,
                 headers=self._headers(),
             )

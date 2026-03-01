@@ -10,3 +10,4 @@ torch
 torchvision
 pynvml==11.5.0
 pydantic==2.9.2
+greenlet>=3.0.0

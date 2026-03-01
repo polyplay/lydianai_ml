@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 class CifarCNN(nn.Module):
-    """Small CNN suitable for CIFAR-10 PoC."""
+    """Small CNN suitable for CIFAR-10."""
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(

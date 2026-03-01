@@ -1,8 +1,8 @@
 server:
   host: "0.0.0.0"
   port: 8000
-  jwt_secret: "change-me-in-production"  # PoC only
-  db_url: "sqlite+aiosqlite:///./lydian_poc.db"
+  jwt_secret: "change-me-in-production"
+  db_url: "sqlite+aiosqlite:///./lydian_ml.db"
   artifacts_dir: "./artifacts"
   log_level: "INFO"
 
@@ -13,6 +13,7 @@ training:
   batch_size: 64
   learning_rate: 0.01
   momentum: 0.9
+  weight_decay: 0.0001
   round_timeout_s: 900
   min_updates_per_round: 1
 

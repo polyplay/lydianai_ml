@@ -11,7 +11,10 @@ from common.model import CifarCNN
 
 def evaluate_cifar10(state_dict: dict, batch_size: int = 256, device: str = "cpu") -> Tuple[float, float]:
     model = CifarCNN()
-    model.load_state_dict(state_dict, strict=False)
+    # Sanitize keys (strip DataParallel 'module.' prefix if present)
+    clean = {k.replace("module.", "") if k.startswith("module.") else k: v
+             for k, v in state_dict.items()}
+    model.load_state_dict(clean, strict=True)
     model.to(device)
     model.eval()
 

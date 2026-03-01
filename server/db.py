@@ -15,7 +15,7 @@ class Worker(Base):
     gpu_count: Mapped[int] = mapped_column(Integer)
     gpus: Mapped[dict] = mapped_column(JSON, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_seen: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.utcnow())
+    last_seen: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.now(dt.timezone.utc))
 
 class TrainingRun(Base):
     __tablename__ = "training_runs"
@@ -23,8 +23,8 @@ class TrainingRun(Base):
     state: Mapped[str] = mapped_column(String)  # idle|running|completed|failed
     config: Mapped[dict] = mapped_column(JSON, default=dict)
     current_round: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.utcnow())
-    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.utcnow())
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.now(dt.timezone.utc))
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.now(dt.timezone.utc))
     message: Mapped[str] = mapped_column(String, default="")
 
 class RoundMetric(Base):
@@ -32,7 +32,7 @@ class RoundMetric(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_id: Mapped[str] = mapped_column(String, index=True)
     round_idx: Mapped[int] = mapped_column(Integer, index=True)
-    aggregated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.utcnow())
+    aggregated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=lambda: dt.datetime.now(dt.timezone.utc))
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
 async def init_db(db_url: str):

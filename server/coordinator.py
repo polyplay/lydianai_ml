@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import io
 import time
 import datetime as dt
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple, List
 
 import torch
 import structlog
@@ -24,25 +23,37 @@ def serialize_state_dict(state_dict: dict) -> bytes:
 
 def deserialize_state_dict(blob: bytes) -> dict:
     buf = io.BytesIO(blob)
-    return torch.load(buf, map_location="cpu")
+    return torch.load(buf, map_location="cpu", weights_only=True)
 
 def federated_average(states: List[dict], weights: List[int]) -> dict:
-    """FedAvg: weighted average of model parameters by sample count."""
+    """FedAvg: weighted average of model parameters by sample count.
+
+    Handles:
+    - Float/parameter tensors: weighted average
+    - num_batches_tracked (BatchNorm): take from first worker (not averaged)
+    - Non-tensor values: take from first worker
+    """
     if not states:
         raise ValueError("No states to average")
     total = float(sum(weights))
     if total <= 0:
         raise ValueError("Total weight must be > 0")
-    avg: Dict[str, torch.Tensor] = {}
+    avg: Dict[str, Any] = {}
     keys = states[0].keys()
     for k in keys:
-        # tensors only for model params
+        v0 = states[0][k]
+        if not torch.is_tensor(v0):
+            # Non-tensor (rare): preserve from first worker
+            avg[k] = v0
+            continue
+        if "num_batches_tracked" in k:
+            # BatchNorm counter: take from first worker, not averaged
+            avg[k] = v0.clone()
+            continue
+        # Standard FedAvg: weighted sum
         vals = []
         for st, w in zip(states, weights):
-            v = st[k]
-            if not torch.is_tensor(v):
-                continue
-            vals.append(v.float() * (float(w) / total))
+            vals.append(st[k].float() * (float(w) / total))
         if vals:
             avg[k] = torch.stack(vals, dim=0).sum(dim=0)
     return avg
@@ -74,7 +85,7 @@ class TrainingState:
     final_test: Optional[dict] = None
 
 class Coordinator:
-    """In-memory coordinator for the PoC.
+    """In-memory coordinator.
 
     - Maintains a global model.
     - Accepts worker updates per round.
@@ -174,7 +185,7 @@ class Coordinator:
                     }
                     for u in got
                 ],
-                "aggregated_at": dt.datetime.utcnow().isoformat() + "Z",
+                "aggregated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
             st.history.append(payload)
             log.info("round_aggregated", **payload)
