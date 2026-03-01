@@ -1,39 +1,45 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 import structlog
 
 log = structlog.get_logger()
 
+def _to_str(v) -> str:
+    if isinstance(v, (bytes, bytearray)):
+        return v.decode("utf-8", errors="ignore")
+    return str(v)
+
 def get_gpu_inventory() -> tuple[int, list[dict]]:
     """Return (gpu_count, list_of_gpu_dicts).
 
-    Tries pynvml; falls back to torch.cuda.
+    Tries NVML (pynvml / nvidia-ml-py); falls back to torch.cuda.
+
+    Some NVML bindings return `str` already; others return `bytes`.
     """
-    gpus = []
+    gpus: list[dict] = []
     try:
         import pynvml  # type: ignore
         pynvml.nvmlInit()
         n = pynvml.nvmlDeviceGetCount()
         for i in range(n):
             h = pynvml.nvmlDeviceGetHandleByIndex(i)
-            name = pynvml.nvmlDeviceGetName(h).decode("utf-8", errors="ignore")
+            name = _to_str(pynvml.nvmlDeviceGetName(h))
             mem = pynvml.nvmlDeviceGetMemoryInfo(h).total // (1024 * 1024)
-            uuid = pynvml.nvmlDeviceGetUUID(h).decode("utf-8", errors="ignore")
+            uuid = _to_str(pynvml.nvmlDeviceGetUUID(h))
             gpus.append({"index": i, "name": name, "total_memory_mb": int(mem), "uuid": uuid})
         return int(n), gpus
     except Exception as e:
-        log.warn("pynvml_unavailable", error=str(e))
+        log.warning("pynvml_unavailable", error=str(e))
         try:
             import torch
             n = torch.cuda.device_count()
             for i in range(n):
                 name = torch.cuda.get_device_name(i)
-                # torch doesn't expose total mem reliably without extra calls
                 gpus.append({"index": i, "name": name, "total_memory_mb": 0, "uuid": None})
             return int(n), gpus
         except Exception as e2:
-            log.warn("cuda_unavailable", error=str(e2))
+            log.warning("cuda_unavailable", error=str(e2))
             return 0, []
 
 def get_gpu_utilization_snapshot() -> Optional[Dict[str, Any]]:
@@ -42,7 +48,7 @@ def get_gpu_utilization_snapshot() -> Optional[Dict[str, Any]]:
         import pynvml  # type: ignore
         pynvml.nvmlInit()
         n = pynvml.nvmlDeviceGetCount()
-        out = {"gpus": []}
+        out: Dict[str, Any] = {"gpus": []}
         for i in range(n):
             h = pynvml.nvmlDeviceGetHandleByIndex(i)
             util = pynvml.nvmlDeviceGetUtilizationRates(h)

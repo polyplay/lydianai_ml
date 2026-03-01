@@ -24,9 +24,19 @@ def _sanitize_state_dict(state_dict: dict) -> dict:
     return cleaned
 
 
-def deserialize_state_dict(blob: bytes) -> dict:
+def deserialize_state_dict(blob: bytes, legacy_torch: bool = False) -> dict:
+    """Deserialize a state dict from bytes.
+
+    Newer PyTorch versions support `weights_only=True`. Older versions don't.
+    If `legacy_torch` is True (or we detect a TypeError), we fall back.
+    """
     buf = io.BytesIO(blob)
-    return torch.load(buf, map_location="cpu", weights_only=True)
+    if legacy_torch:
+        return torch.load(buf, map_location="cpu")
+    try:
+        return torch.load(buf, map_location="cpu", weights_only=True)
+    except TypeError:
+        return torch.load(buf, map_location="cpu")
 
 def serialize_state_dict(state_dict: dict) -> bytes:
     buf = io.BytesIO()
@@ -62,13 +72,14 @@ def train_one_round(
     device: str,
     weight_decay: float = 0.0001,
     use_data_parallel: bool = True,
+    legacy_torch: bool = False,
 ) -> Tuple[bytes, float, float, float]:
     """Train locally for E epochs and return new state dict blob + (loss, acc, wall_time)."""
     t0 = time.time()
     model = CifarCNN()
 
     # BUG-3 FIX: strict=True with key sanitization to catch mismatches
-    raw_state = deserialize_state_dict(model_blob)
+    raw_state = deserialize_state_dict(model_blob, legacy_torch=legacy_torch)
     clean_state = _sanitize_state_dict(raw_state)
     model.load_state_dict(clean_state, strict=True)
 

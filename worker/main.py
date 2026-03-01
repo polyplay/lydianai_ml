@@ -11,6 +11,8 @@ from typing import Optional
 
 import structlog
 
+import torch
+
 from common.schemas import WorkerRegisterRequest, GPUInfo, HeartbeatRequest, SubmitUpdateRequest
 from worker.config import WorkerConfig
 from worker.logging_setup import configure_logging
@@ -79,6 +81,15 @@ async def training_loop(cfg: WorkerConfig):
     client = ServerClient(cfg.server_url)
 
     gpu_count, gpus = get_gpu_inventory()
+
+    # When force_cpu is set, register with 0 GPUs so the server assigns
+    # a CPU-proportional data shard (instead of a GPU-sized one).
+    if cfg.force_cpu:
+        log.info("force_cpu_enabled", original_gpu_count=gpu_count,
+                 message="Registering with gpu_count=0 for proportional data partitioning")
+        gpu_count = 0
+        gpus = []
+
     req = WorkerRegisterRequest(
         name=cfg.name,
         tailscale_ip=cfg.tailscale_ip,
@@ -169,7 +180,9 @@ async def training_loop(cfg: WorkerConfig):
                 backoff_base=cfg.retry_backoff_base,
             )
 
-            device = "cuda:0" if gpu_count > 0 else "cpu"
+            device = "cpu"
+            if (not cfg.force_cpu) and gpu_count > 0 and torch.cuda.is_available():
+                device = "cuda:0"
             log.info("round_start", run_id=run_id, round_idx=round_idx,
                      num_samples=len(indices), device=device)
 
@@ -188,6 +201,7 @@ async def training_loop(cfg: WorkerConfig):
                 momentum=config.momentum,
                 weight_decay=config.weight_decay,
                 device=device,
+                legacy_torch=cfg.legacy_torch,
                 use_data_parallel=True,
             )
 
@@ -244,15 +258,23 @@ def main():
                         help="This machine's Tailscale IP (100.x.x.x). If omitted, best-effort guess.")
     parser.add_argument("--data-dir", default=None,
                         help="Local data directory (default: ./data)")
+    parser.add_argument("--legacy-torch", action="store_true",
+                        help="Compatibility mode for older PyTorch (disables newer torch.load args).")
+    parser.add_argument("--force-cpu", action="store_true",
+                        help="Force CPU training even if GPUs are present.")
     args = parser.parse_args()
 
     tailscale_ip = args.tailscale_ip or guess_local_ip()
     cfg = WorkerConfig(server_url=args.server, name=args.name, tailscale_ip=tailscale_ip)
-    if args.data_dir:
-        # WorkerConfig is frozen, so we need to reconstruct
+    # WorkerConfig is frozen, so we need to reconstruct for overrides
+    if args.data_dir or args.legacy_torch or args.force_cpu:
         cfg = WorkerConfig(
-            server_url=args.server, name=args.name,
-            tailscale_ip=tailscale_ip, data_dir=args.data_dir,
+            server_url=args.server,
+            name=args.name,
+            tailscale_ip=tailscale_ip,
+            data_dir=args.data_dir or cfg.data_dir,
+            legacy_torch=bool(args.legacy_torch) or cfg.legacy_torch,
+            force_cpu=bool(args.force_cpu) or cfg.force_cpu,
         )
 
     asyncio.run(training_loop(cfg))
