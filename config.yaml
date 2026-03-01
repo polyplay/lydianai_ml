@@ -1,0 +1,23 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  jwt_secret: "change-me-in-production"  # PoC only
+  db_url: "sqlite+aiosqlite:///./lydian_poc.db"
+  artifacts_dir: "./artifacts"
+  log_level: "INFO"
+
+training:
+  dataset: "cifar10"
+  num_rounds: 20
+  local_epochs: 1
+  batch_size: 64
+  learning_rate: 0.01
+  momentum: 0.9
+  round_timeout_s: 900
+  min_updates_per_round: 1
+
+worker:
+  heartbeat_interval_s: 30
+  retry_attempts: 5
+  retry_backoff_base: 2
+  data_dir: "./data"
