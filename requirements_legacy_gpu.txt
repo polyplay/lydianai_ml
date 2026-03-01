@@ -1,0 +1,25 @@
+# LEGACY GPUs (Pascal sm_61 like GTX 1080/1080 Ti). Python 3.10 recommended.
+# Pins torch+torchvision to CUDA 11.7 builds that still include sm_61.
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+httpx==0.27.2
+python-multipart==0.0.9
+pyjwt==2.9.0
+structlog==24.4.0
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+pydantic==2.9.2
+
+# TorchVision binary extensions were built against NumPy 1.x -> keep NumPy < 2
+numpy==1.26.4
+
+# NVML bindings (installs the pynvml module)
+nvidia-ml-py
+
+# Pascal-compatible pinned wheels
+torch==1.13.1+cu117
+torchvision==0.14.1+cu117
+
+# Use the CUDA 11.7 PyTorch wheel index for the +cu117 build tags
+--extra-index-url https://download.pytorch.org/whl/cu117

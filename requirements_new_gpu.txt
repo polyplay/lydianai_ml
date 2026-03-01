@@ -1,0 +1,22 @@
+# NEW GPUs (sm_70+). Python 3.12+ recommended.
+# If you need CUDA wheels, install torch/torchvision according to your platform.
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+httpx==0.27.2
+python-multipart==0.0.9
+pyjwt==2.9.0
+structlog==24.4.0
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+pydantic==2.9.2
+
+# Conservative pin to avoid NumPy 2.x ABI surprises
+numpy==1.26.4
+
+# NVML bindings (installs the pynvml module)
+nvidia-ml-py
+
+# Torch deps: choose versions appropriate for your CUDA / platform.
+torch
+torchvision
